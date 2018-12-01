@@ -6,11 +6,13 @@
 
 1. 客户端－服务端　服务模型
 2. 包含一个客户端程序和一个服务端程序，客户端程序既可以可以往服务端发送大文件，也可以从服务端下载文件。
-发送文件:
-LFTP lsend myserver mylargefile
-下载文件:
-LFTP lget myserver mylargefile
-参数 myserver可以是url地址或者ip地址
+```
+    发送文件:
+    LFTP lsend myserver mylargefile
+    下载文件:
+    LFTP lget myserver mylargefile
+    参数 myserver可以是url地址或者ip地址
+```
 
 3. LFTP 使用UDP传输层协议
 4. LFTP 可以像TCP一样实现100%可靠
