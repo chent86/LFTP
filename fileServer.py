@@ -5,30 +5,43 @@ from socket import *
 import struct
 import time
 import threading
+import copy
 
-sk = socket(AF_INET, SOCK_DGRAM)
-sk.bind(('',8888))
-sk.settimeout(5)
+# 子线程
+def get(ip_port, file_cache_len, filename):
+    sk = socket(AF_INET, SOCK_DGRAM)
+    sk.settimeout(5)
 
-buffer = 1024
-recv_base = 0
-file_cache_len = 42950
-file_cache = [0]*file_cache_len
-ACK_status = [0]*file_cache_len
-rwnd = 500
-seq_max = 100 # 未用到
-lock = threading.Lock()
-
-
-def get():
-    global recv_base
+    get_in = False
+    while True:
+        for port in range(8889, 8899):
+            try:
+                sk.bind(('',port))
+                get_in = True
+                break
+            except:
+                print("address "+str(port)+" already used") 
+        if get_in:
+            break
+        time.sleep(3)
+    print(str(ip_port)+' get in')
+    buffer = 1024
+    recv_base = 0
+    file_cache = [0]*file_cache_len
+    ACK_status = [0]*file_cache_len
+    rwnd = 500
+    message = 'ok'
+    sk.sendto(message.encode('utf-8'), ip_port)
+    print(str(ip_port)+' send OK')
+    print("Receiving file from "+str(ip_port))
     while True:
         if recv_base == file_cache_len:
+            save_file(file_cache, filename)
             break 
         try:
             message, ip_port = sk.recvfrom(buffer+30)
         except Exception:
-            print("socket disconnect")
+            print("time out")
             break
         seq, content, size = struct.unpack("i1024si", message)
         if seq >= recv_base and seq < recv_base+rwnd:
@@ -46,32 +59,26 @@ def get():
             file_cache[seq] = content[:size]
         else:
             file_cache[seq] = content
+    sk.close()
 
-def process():
-    global recv_base
-    while recv_base==0:
-        start_time = time.time()
+# 从主端口获取用户操作信息, 随后分配到子线程进行对接
+def shake_hand():
+    sk = socket(AF_INET, SOCK_DGRAM)
+    sk.bind(('',8888))
     while True:
-        last_base = recv_base
-        time.sleep(0.01)
-        percent = recv_base*100/file_cache_len
-        if recv_base != file_cache_len:
-            print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'),end='\r')
-        else:
-            print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'))
-            break
+        message, new_ip_port = sk.recvfrom(200)
+        service_type, file_cache_len, filename_size, filename = struct.unpack("iii100s", message)
+        if service_type == 0:
+            t = threading.Thread(target = get, args=(new_ip_port, file_cache_len, filename[:filename_size]))
+            t.start()
+    sk.close()
 
-print("Receiving file ...")
-threads = [threading.Thread(target = process), threading.Thread(target = get)]
-for t in threads:
-    t.start()
-for t in threads:
-    t.join()
-get()
+# 保存文件
+def save_file(file_cache, filename):
+    with open(filename, 'wb') as f:
+        for content in file_cache:
+            f.write(content)
+    print('OK')
 
-with open('server.pdf', 'wb') as f:
-    for content in file_cache:
-        f.write(content)
-sk.close()
-print('OK')
 
+shake_hand()
