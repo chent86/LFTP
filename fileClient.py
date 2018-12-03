@@ -21,29 +21,45 @@ filesize = os.path.getsize(file_path)
 send_base = 0
 nextseqnum = 0
 rwnd = 500
+cwnd = 1
+ssthresh = 1000
 seq_max = 100 # 未用到
 ACK_status = []
 file_cache = []
 lock = threading.Lock()
 
+is_connect = True
+EstimatedRTT = 0.009
+DevRTT = 0
+
 def get():
     global send_base
     global nextseqnum
+    global cwnd
+    global is_connect
     t = True
-    while t:
+    while t and is_connect:
         lock.acquire()
         if send_base == len(file_cache):
+            lock.release()
             break
         lock.release()
         try:
             ACK_seq = sk.recv(30)
         except Exception:
             print("socket disconnect")
+            is_connect = False
+            lock.release()
             break
         ACK_seq = int(ACK_seq)
 
         lock.acquire()
         if ACK_seq >= send_base and ACK_seq < nextseqnum:
+            if ACK_status[ACK_seq] == 0:
+                if cwnd < ssthresh:
+                    cwnd = cwnd+1
+                else:
+                    cwnd = cwnd+1/cwnd
             ACK_status[ACK_seq] = 1
             while ACK_status[send_base] == 1:
                 send_base = send_base+1
@@ -55,32 +71,41 @@ def get():
 def send():
     global send_base
     global nextseqnum
-    while True:
+    while is_connect:
         lock.acquire()
         if send_base == len(file_cache):
+            lock.release()
             break
+        # 加上and nextseqnum-send_base < cwnd条件增加拥塞控制
         if nextseqnum-send_base < rwnd and nextseqnum < len(file_cache):
             message = struct.pack("i1024si", nextseqnum, file_cache[nextseqnum], len(file_cache[nextseqnum]))
             sk.sendto(message, ip_port)
             nextseqnum = nextseqnum+1   
         lock.release()
-        if timer(send_base)==False:
-            break
+        timer(send_base)
 
 def timer(old_base):
-    time.sleep(0.0009)
-    # time.sleep(0.0001)
-    lock.acquire()
-    if old_base == send_base and send_base != len(file_cache):
-        message = struct.pack("i1024si", send_base, file_cache[send_base], len(file_cache[send_base]))
-        try:
-            sk.sendto(message, ip_port)
-        except Exception:
-            print("socket disconnect")
-            lock.release()
-            return False 
-    lock.release()
-    return True
+    global send_base
+    global cwnd
+    global ssthresh
+    global is_connect
+    if is_connect:
+        # time.sleep(0.001) 
+        time.sleep(0.0001)
+        lock.acquire()
+        if old_base == send_base and send_base != len(file_cache):
+            message = struct.pack("i1024si", send_base, file_cache[send_base], len(file_cache[send_base]))
+            try:
+                sk.sendto(message, ip_port)
+                print('resend '+str(send_base))
+                ssthresh = cwnd/2
+                cwnd = 1
+            except Exception:
+                print("socket disconnect")
+                lock.release()
+                is_connect = False 
+                return
+        lock.release()
 
 print("Loading "+filename+" ...")
 with open(file_path, 'rb') as f:
