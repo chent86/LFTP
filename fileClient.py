@@ -7,8 +7,9 @@ import json
 import os
 
 buffer = 1024
-ip_port = ('119.29.204.118', 8888)
-# ip_port = ('127.0.0.1', 8888)
+hostName = '119.29.204.118'
+# hostName = '127.0.0.1'
+ip_port = (hostName, 8888)
 
 sk = socket(AF_INET, SOCK_DGRAM)
 file_cache_len = 0
@@ -37,7 +38,7 @@ def clean():
     ACK_status = []
     file_cache = []
 
-def get(ip_port):
+def get():
     global send_base, nextseqnum, cwnd, is_connect, file_cache, file_cache_len
     t = True
     start_time = time.time()
@@ -139,11 +140,12 @@ def shake_hand(filename):
     helper = threading.Thread(target = shake_helper, args=(filename,))
     helper.start()
     print('start to recv')
-    message, new_ip_port = sk.recvfrom(1024)
-    print(new_ip_port)
+    new_port = sk.recv(1024)
+    new_port = int(new_port)
+    print('new port is '+str(new_port))
     shake_finish = True
     print('recv OK')
-    threads = [threading.Thread(target = get, args=(new_ip_port,)), threading.Thread(target = send, args=(new_ip_port,))]
+    threads = [threading.Thread(target = get), threading.Thread(target = send, args=((hostName,new_port),))]
     for t in threads:
         t.start()
     for t in threads:

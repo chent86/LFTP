@@ -9,30 +9,11 @@ import copy
 
 # 子线程
 def get(ip_port, file_cache_len, filename, sk):
-    # sk = socket(AF_INET, SOCK_DGRAM)
-    # sk.settimeout(10)
-
-    # get_in = False
-    # while True:
-    #     for port in range(8889, 8899):
-    #         try:
-    #             sk.bind(('',port))
-    #             get_in = True
-    #             break
-    #         except:
-    #             print("address "+str(port)+" already used") 
-    #     if get_in:
-    #         break
-    #     time.sleep(3)
-    print(str(ip_port)+' get in')
     buffer = 1024
     recv_base = 0
     file_cache = [0]*file_cache_len
     ACK_status = [0]*file_cache_len
     rwnd = 500
-    message = 'ok'
-    sk.sendto(message.encode('utf-8'), ip_port)
-    print(str(ip_port)+' send OK')
     print("Receiving file from "+str(ip_port))
     while True:
         if recv_base == file_cache_len:
@@ -69,7 +50,25 @@ def shake_hand():
         message, new_ip_port = sk.recvfrom(200)
         service_type, file_cache_len, filename_size, filename = struct.unpack("iii100s", message)
         if service_type == 0:
-            t = threading.Thread(target = get, args=(new_ip_port, file_cache_len, filename[:filename_size], sk))
+            new_sk = socket(AF_INET, SOCK_DGRAM)
+            new_port = 0
+            get_in = False
+            while True:
+                for port in range(8889, 8899):
+                    try:
+                        new_sk.bind(('',port))
+                        new_port = port
+                        get_in = True
+                        break
+                    except:
+                        print("address "+str(port)+" already used") 
+                if get_in:
+                    break
+                time.sleep(3)
+            new_port = str(new_port)
+            sk.sendto(new_port.encode('utf-8'), new_ip_port)
+            new_sk.settimeout(5)
+            t = threading.Thread(target = get, args=(new_ip_port, file_cache_len, filename[:filename_size], new_sk))
             t.start()
     sk.close()
 
