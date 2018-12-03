@@ -1,17 +1,14 @@
 from socket import *
-
-serverName = '127.0.0.1'
-serverPort = 12345
+import struct
+# serverName = '127.0.0.1'
+serverName = '119.29.204.118'
+serverPort = 8888
 clientSocket = socket(AF_INET, SOCK_DGRAM)
+a = "123"
+message = struct.pack("i4si", 65, a.encode('utf-8'), 3)
 # message = raw_input('Input lowercase sentence:')
-clientSocket.sendto('1', (serverName, serverPort))
-clientSocket.sendto('2', (serverName, serverPort))
-clientSocket.sendto('3', (serverName, serverPort))
-clientSocket.sendto('4', (serverName, serverPort))
-clientSocket.sendto('5', (serverName, serverPort))
-clientSocket.sendto('6', (serverName, serverPort))
-clientSocket.sendto('7', (serverName, serverPort))
-clientSocket.sendto('8', (serverName, serverPort))
+clientSocket.sendto(message, (serverName, serverPort))
+
 # modifiedMessage, serverAddress = clientSocket.recvfrom(2048)
 # print modifiedMessage
 # clientSocket.close()

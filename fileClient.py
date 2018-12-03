@@ -6,9 +6,9 @@ import threading
 import json
 import os
 
-buffer = 2048
-# ip_port = ('119.29.204.118', 12345)
-ip_port = ('127.0.0.1', 12345)
+buffer = 1024
+# ip_port = ('119.29.204.118', 8888)
+ip_port = ('127.0.0.1', 8888)
 
 sk = socket(AF_INET, SOCK_DGRAM)
 sk.connect(ip_port)
@@ -35,7 +35,11 @@ def get():
         if send_base == len(file_cache):
             break
         lock.release()
-        ACK_seq = sk.recv(20)
+        try:
+            ACK_seq = sk.recv(30)
+        except Exception:
+            print("socket disconnect")
+            break
         ACK_seq = int(ACK_seq)
 
         lock.acquire()
@@ -56,20 +60,27 @@ def send():
         if send_base == len(file_cache):
             break
         if nextseqnum-send_base < rwnd and nextseqnum < len(file_cache):
-            message = struct.pack("i"+str(len(file_cache[nextseqnum]))+"si", nextseqnum, file_cache[nextseqnum], len(file_cache[nextseqnum]))
-            sk.send(message)
+            message = struct.pack("i1024si", nextseqnum, file_cache[nextseqnum], len(file_cache[nextseqnum]))
+            sk.sendto(message, ip_port)
             nextseqnum = nextseqnum+1   
         lock.release()
-        timer(send_base)
+        if timer(send_base)==False:
+            break
 
 def timer(old_base):
-    time.sleep(0.0001)
+    time.sleep(0.0009)
+    # time.sleep(0.0001)
     lock.acquire()
-    if old_base == send_base:
-        message = struct.pack("i"+str(len(file_cache[send_base]))+"si", send_base, file_cache[send_base], len(file_cache[send_base]))
-        sk.send(message)
-        print('resend '+str(send_base))   
+    if old_base == send_base and send_base != len(file_cache):
+        message = struct.pack("i1024si", send_base, file_cache[send_base], len(file_cache[send_base]))
+        try:
+            sk.sendto(message, ip_port)
+        except Exception:
+            print("socket disconnect")
+            lock.release()
+            return False 
     lock.release()
+    return True
 
 print("Loading "+filename+" ...")
 with open(file_path, 'rb') as f:
