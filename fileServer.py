@@ -8,22 +8,22 @@ import threading
 import copy
 
 # 子线程
-def get(ip_port, file_cache_len, filename):
-    sk = socket(AF_INET, SOCK_DGRAM)
-    sk.settimeout(5)
+def get(ip_port, file_cache_len, filename, sk):
+    # sk = socket(AF_INET, SOCK_DGRAM)
+    # sk.settimeout(10)
 
-    get_in = False
-    while True:
-        for port in range(8889, 8899):
-            try:
-                sk.bind(('',port))
-                get_in = True
-                break
-            except:
-                print("address "+str(port)+" already used") 
-        if get_in:
-            break
-        time.sleep(3)
+    # get_in = False
+    # while True:
+    #     for port in range(8889, 8899):
+    #         try:
+    #             sk.bind(('',port))
+    #             get_in = True
+    #             break
+    #         except:
+    #             print("address "+str(port)+" already used") 
+    #     if get_in:
+    #         break
+    #     time.sleep(3)
     print(str(ip_port)+' get in')
     buffer = 1024
     recv_base = 0
@@ -69,7 +69,7 @@ def shake_hand():
         message, new_ip_port = sk.recvfrom(200)
         service_type, file_cache_len, filename_size, filename = struct.unpack("iii100s", message)
         if service_type == 0:
-            t = threading.Thread(target = get, args=(new_ip_port, file_cache_len, filename[:filename_size]))
+            t = threading.Thread(target = get, args=(new_ip_port, file_cache_len, filename[:filename_size], sk))
             t.start()
     sk.close()
 

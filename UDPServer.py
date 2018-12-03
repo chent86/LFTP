@@ -4,11 +4,10 @@ serverPort = 8888
 serverSocket = socket(AF_INET, SOCK_DGRAM)
 serverSocket.bind(('',serverPort))
 print("The server is ready to receive")
-while True:
-    message, clientAddress = serverSocket.recvfrom(3000)
-    print(message)
-    seq, content, size = struct.unpack("i4si", message)
-    content = content[:size]
-    print(content)
+message, clientAddress = serverSocket.recvfrom(3000)
+print(message)
+sk = socket(AF_INET, SOCK_DGRAM)
+sk.sendto(message, clientAddress)
+
     # modifiedMessage = message.upper()
     # serverSocket.sendto(modifiedMessage, clientAddress)

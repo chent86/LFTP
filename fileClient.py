@@ -7,8 +7,8 @@ import json
 import os
 
 buffer = 1024
-# ip_port = ('119.29.204.118', 8888)
-ip_port = ('127.0.0.1', 8888)
+ip_port = ('119.29.204.118', 8888)
+# ip_port = ('127.0.0.1', 8888)
 
 sk = socket(AF_INET, SOCK_DGRAM)
 file_cache_len = 0
@@ -129,7 +129,7 @@ def load_file(file_path):
 
 shake_finish = False
 def shake_hand(filename):
-    global ip_port, file_cache_len, shake_finish, sk
+    global ip_port, file_cache_len, shake_finish
     service_type = 0 # 上传文件
     message = struct.pack("iii100s", service_type, file_cache_len, len(filename), filename.encode('utf-8'))
     sk.sendto(message, ip_port)
