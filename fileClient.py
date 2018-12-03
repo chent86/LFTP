@@ -7,8 +7,8 @@ import json
 import os
 
 buffer = 1024
-ip_port = ('119.29.204.118', 8888)
-# ip_port = ('127.0.0.1', 8888)
+# ip_port = ('119.29.204.118', 8888)
+ip_port = ('127.0.0.1', 8888)
 
 sk = socket(AF_INET, SOCK_DGRAM)
 file_cache_len = 0
@@ -39,7 +39,6 @@ def clean():
 
 def get(ip_port):
     global send_base, nextseqnum, cwnd, is_connect, file_cache, file_cache_len
-    sk.bind(('',ip_port))
     t = True
     start_time = time.time()
     while t and is_connect:
@@ -134,10 +133,6 @@ def shake_hand(filename):
     service_type = 0 # 上传文件
     message = struct.pack("iii100s", service_type, file_cache_len, len(filename), filename.encode('utf-8'))
     sk.sendto(message, ip_port)
-    addr, m_port = sk.getsockname()
-    print(m_port)
-    sk = socket(AF_INET, SOCK_DGRAM)
-    sk.bind(('', m_port))
 
     # print('send syn')
     shake_finish = False
