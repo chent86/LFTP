@@ -38,9 +38,11 @@ def clean():
 
 # 接收线程，负责接收服务端的ACK
 def get():
-    global send_base, nextseqnum, cwnd, is_connect, file_cache, file_cache_len
+    global send_base, nextseqnum, cwnd, is_connect, file_cache, file_cache_len, ssthresh
     t = True
     start_time = time.time()
+    old_base = -1
+    dupACkcount = 0
     while t and is_connect:
         lock.acquire()
         if send_base == len(file_cache):
@@ -48,12 +50,21 @@ def get():
             break
         lock.release()
         try:
-            ACK_seq = sk.recv(30)
-        except Exception:
-            print("socket disconnect")
+            message = sk.recv(30)
+            ACK_seq, new_base = struct.unpack("ii", message)
+            if old_base==new_base:
+                dupACkcount = dupACkcount+1
+                if dupACkcount >= 3:
+                    ssthresh = cwnd/2
+                    cwnd = ssthresh+3
+            else:
+                old_base = new_base
+                dupACkcount = 0
+        except Exception as e:
+            print(e)
+            print("socket disconnect1")
             is_connect = False
             break
-        ACK_seq = int(ACK_seq)
         if ACK_seq == -1: # 运行发送的包的冗余
             continue
 
@@ -81,7 +92,7 @@ def send(ip_port):
             lock.release()
             break
         # 加上and nextseqnum-send_base < cwnd条件增加拥塞控制
-        if nextseqnum-send_base < rwnd and nextseqnum < len(file_cache):
+        if nextseqnum-send_base < rwnd and nextseqnum < len(file_cache) and nextseqnum-send_base < cwnd:
             message = struct.pack("i1024si", nextseqnum, file_cache[nextseqnum], len(file_cache[nextseqnum]))
             sk.sendto(message, ip_port)
             # print('send '+str(nextseqnum))
@@ -93,7 +104,7 @@ def send(ip_port):
 def timer(old_base, ip_port):
     global send_base, cwnd, ssthresh, is_connect
     if is_connect:
-        time.sleep(0.001) 
+        time.sleep(0.01) 
         # time.sleep(0.0001)
         lock.acquire()
         if old_base == send_base and send_base != len(file_cache):
@@ -104,7 +115,7 @@ def timer(old_base, ip_port):
                 ssthresh = cwnd/2
                 cwnd = 1
             except Exception:
-                print("socket disconnect")
+                print("socket disconnect2")
                 lock.release()
                 is_connect = False 
                 return

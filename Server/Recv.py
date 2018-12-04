@@ -26,7 +26,8 @@ def service(target_ip_port, file_cache_len, filename, sk):
         seq, content, size = struct.unpack("i1024si", message)
         if seq >= recv_base and seq < recv_base+rwnd:
             ACK_status[seq] = 1
-            sk.sendto(str(seq).encode('utf-8'), ip_port)
+            message = struct.pack("ii", seq, recv_base)
+            sk.sendto(message, ip_port)
             while ACK_status[recv_base] == 1:
                 recv_base = recv_base+1
                 process(recv_base, file_cache_len, start_time)
@@ -34,7 +35,8 @@ def service(target_ip_port, file_cache_len, filename, sk):
                 if recv_base==file_cache_len:
                     break
         elif seq >= recv_base-rwnd and seq < recv_base:
-            sk.sendto(str(seq).encode('utf-8'), ip_port)
+            message = struct.pack("ii", seq, recv_base)
+            sk.sendto(message, ip_port)
         else:
             continue
         if seq == file_cache_len-1:

@@ -37,9 +37,11 @@ def clean():
 
 # 接收线程，负责接收服务端的ACK
 def get():
-    global send_base, nextseqnum, cwnd, is_connect, file_cache, file_cache_len
+    global send_base, nextseqnum, cwnd, is_connect, file_cache, file_cache_len, ssthresh
     t = True
     start_time = time.time()
+    old_base = -1
+    dupACkcount = 0
     while t and is_connect:
         process(send_base, file_cache_len, start_time)
         lock.acquire()
@@ -48,13 +50,21 @@ def get():
             break
         lock.release()
         try:
-            ACK_seq = sk.recv(30)
+            message = sk.recv(30)
+            ACK_seq, new_base = struct.unpack("ii", message)
+            if old_base==new_base:
+                dupACkcount = dupACkcount+1
+                if dupACkcount >= 3:
+                    ssthresh = cwnd/2
+                    cwnd = ssthresh+3
+            else:
+                old_base = new_base
+                dupACkcount = 0
         except Exception:
             print("socket disconnect")
             is_connect = False
             lock.release()
             break
-        ACK_seq = int(ACK_seq)
 
         lock.acquire()
         if ACK_seq >= send_base and ACK_seq < nextseqnum:
@@ -81,7 +91,7 @@ def send(ip_port):
             lock.release()
             break
         # 加上and nextseqnum-send_base < cwnd条件增加拥塞控制
-        if nextseqnum-send_base < rwnd and nextseqnum < len(file_cache):
+        if nextseqnum-send_base < rwnd and nextseqnum < len(file_cache) and nextseqnum-send_base < cwnd:
             message = struct.pack("i1024si", nextseqnum, file_cache[nextseqnum], len(file_cache[nextseqnum]))
             sk.sendto(message, ip_port)
             nextseqnum = nextseqnum+1   
@@ -92,7 +102,7 @@ def send(ip_port):
 def timer(old_base, ip_port):
     global send_base, cwnd, ssthresh, is_connect
     if is_connect:
-        time.sleep(0.001) 
+        time.sleep(0.01) 
         # time.sleep(0.0001)
         lock.acquire()
         if old_base == send_base and send_base != len(file_cache):
@@ -131,12 +141,14 @@ def load_file(file_path):
 def process(send_base, file_cache_len, start_time):
     try:
         percent = send_base*100/file_cache_len
+        speed = int(send_base/int(time.time()-start_time))
     except Exception:
         percent = 100
+        speed = 0
     if send_base != file_cache_len:
-        print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'),end='\r')
+        print('complete percent:%10.8s%s   spent time:%s%s  speed: %s kb/s '%(str(percent),'%', str(int(time.time()-start_time)),'s', str(speed)),end='\r')
     else:
-        print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'))
+        print('complete percent:%10.8s%s   spent time:%s%s  speed: %s kb/s '%(str(percent),'%', str(int(time.time()-start_time)),'s', str(speed)))
 
 def service(dirpath, filename, ip_port, m_socket):
     global sk
