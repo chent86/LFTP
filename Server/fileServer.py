@@ -5,6 +5,7 @@ from socket import *
 import struct
 import time
 import threading
+import multiprocessing
 import copy
 import Recv
 import Send
@@ -46,9 +47,11 @@ def shake_hand():
                 # todo: 判断是否有这个文件
                 filesize = os.path.getsize(filename[:filename_size])
                 file_cache_len = int(filesize/buffer)+1
+                if int(filesize/buffer)==filesize/buffer:
+                    file_cache_len = file_cache_len-1
                 message = struct.pack("ii", new_port, file_cache_len)
                 sk.sendto(message, new_ip_port)
-                t = threading.Thread(target = Send.service, args=(new_ip_port, filename[:filename_size], new_sk))
+                t = multiprocessing.Process(target = Send.service, args=(new_ip_port, filename[:filename_size], new_sk))
                 t.start()
     sk.close()
 

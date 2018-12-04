@@ -92,8 +92,8 @@ def send(ip_port):
 def timer(old_base, ip_port):
     global send_base, cwnd, ssthresh, is_connect
     if is_connect:
-        # time.sleep(0.001) 
-        time.sleep(0.0001)
+        time.sleep(0.001) 
+        # time.sleep(0.0001)
         lock.acquire()
         if old_base == send_base and send_base != len(file_cache):
             message = struct.pack("i1024si", send_base, file_cache[send_base], len(file_cache[send_base]))

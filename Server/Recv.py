@@ -1,5 +1,6 @@
 import struct
 import os
+import time
 # 从客户端接收文件
 def service(target_ip_port, file_cache_len, filename, sk):
     buffer = 1024
@@ -8,13 +9,16 @@ def service(target_ip_port, file_cache_len, filename, sk):
     ACK_status = [0]*file_cache_len
     rwnd = 500
     print("Receiving file from "+str(target_ip_port))
+    start_time = time.time()
     while True:
+        process(recv_base, file_cache_len, start_time)
+        # print(str(recv_base)+' '+str(file_cache_len))
         if recv_base == file_cache_len:
             save_file(file_cache, filename)
             break 
         try:
             message, ip_port = sk.recvfrom(buffer+30)
-            if ip_port != target_ip_port:  # 限制其他ip恶意连接
+            if ip_port[0] != target_ip_port[0]:  # 限制其他ip恶意连接
                 continue
         except Exception:
             print("time out")
@@ -25,6 +29,8 @@ def service(target_ip_port, file_cache_len, filename, sk):
             sk.sendto(str(seq).encode('utf-8'), ip_port)
             while ACK_status[recv_base] == 1:
                 recv_base = recv_base+1
+                process(recv_base, file_cache_len, start_time)
+                # print(str(recv_base)+' '+str(file_cache_len))
                 if recv_base==file_cache_len:
                     break
         elif seq >= recv_base-rwnd and seq < recv_base:
@@ -43,3 +49,14 @@ def save_file(file_cache, filename):
         for content in file_cache:
             f.write(content)
     print('OK')
+
+# 输出当前进度
+def process(recv_base, file_cache_len, start_time):
+    try:
+        percent = recv_base*100/file_cache_len
+    except Exception:
+        percent = 100
+    if recv_base != file_cache_len:
+        print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'),end='\r')
+    else:
+        print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'))

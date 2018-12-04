@@ -7,8 +7,8 @@ import threading
 import time
 
 
-# hostName = '119.29.204.118'
-hostName = '127.0.0.1'
+hostName = '119.29.204.118'
+# hostName = '127.0.0.1'
 ip_port = (hostName, 8888)
 
 sk = socket(AF_INET, SOCK_DGRAM)
@@ -22,7 +22,7 @@ def shake_hand(filename, file_cache_len, service_type):
 
     # print('send syn')
     shake_finish = False
-    helper = threading.Thread(target = shake_helper, args=(filename,))
+    helper = threading.Thread(target = shake_helper, args=(filename, file_cache_len))
     helper.start()
     print('start to recv')
     message = sk.recv(1024)
@@ -33,7 +33,7 @@ def shake_hand(filename, file_cache_len, service_type):
     return new_port, file_cache_len
 
 # SYN 信息重发
-def shake_helper(filename):
+def shake_helper(filename, file_cache_len):
     global shake_finish
     while True:
         time.sleep(1)
@@ -45,12 +45,19 @@ def shake_helper(filename):
         # print('resend syn')
 
 while True:
-    # dirpath = input()
-    filename = input()
+    type = input()
+    if type == "0":
+        dirpath = input()
+        filename = input()
+        path = os.path.join(dirpath, filename)
+        filesize = os.path.getsize(path)
+        file_cache_len = int(filesize/Upload.buffer)+1
+        if int(filesize/Upload.buffer)==filesize/Upload.buffer:
+            file_cache_len = file_cache_len-1
+        new_port, file_cache_len = shake_hand(filename, file_cache_len, 0)
+        Upload.service(dirpath, filename, (hostName,new_port), sk)
+    else:
+        filename = input()
+        new_port, file_cache_len = shake_hand(filename, 0, 1)
+        Download.service((hostName,new_port), file_cache_len, filename, sk)
 
-    # path = os.path.join(dirpath, filename)
-    # filesize = os.path.getsize(path)
-    # new_port, file_cache_len = shake_hand(filename, int(filesize/Upload.buffer)+1, 0)
-    # Upload.service(dirpath, filename, (hostName,new_port), sk)
-    new_port, file_cache_len = shake_hand(filename, 0, 1)
-    Download.service((hostName,new_port), file_cache_len, filename, sk)

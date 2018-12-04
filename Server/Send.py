@@ -52,7 +52,6 @@ def get():
         except Exception:
             print("socket disconnect")
             is_connect = False
-            lock.release()
             break
         ACK_seq = int(ACK_seq)
         if ACK_seq == -1: # 运行发送的包的冗余
@@ -85,6 +84,7 @@ def send(ip_port):
         if nextseqnum-send_base < rwnd and nextseqnum < len(file_cache):
             message = struct.pack("i1024si", nextseqnum, file_cache[nextseqnum], len(file_cache[nextseqnum]))
             sk.sendto(message, ip_port)
+            # print('send '+str(nextseqnum))
             nextseqnum = nextseqnum+1   
         lock.release()
         timer(send_base, ip_port)
@@ -93,8 +93,8 @@ def send(ip_port):
 def timer(old_base, ip_port):
     global send_base, cwnd, ssthresh, is_connect
     if is_connect:
-        # time.sleep(0.001) 
-        time.sleep(0.0001)
+        time.sleep(0.001) 
+        # time.sleep(0.0001)
         lock.acquire()
         if old_base == send_base and send_base != len(file_cache):
             message = struct.pack("i1024si", send_base, file_cache[send_base], len(file_cache[send_base]))
@@ -134,9 +134,11 @@ def shake_hand(filename):
     global sk, ip_port
     while True:
         message, new_ip_port = sk.recvfrom(100) # 获取socket权限
-        if ip_port == new_ip_port:  # 防止其他ip恶意访问
+        if ip_port[0] == new_ip_port[0]:  # 防止其他ip恶意访问
             break
-    threads = [threading.Thread(target = get), threading.Thread(target = send, args=(ip_port,))]
+    print("Sending "+str(filename)+" ...")
+    print(new_ip_port)
+    threads = [threading.Thread(target = get), threading.Thread(target = send, args=(new_ip_port,))]
     for t in threads:
         t.start()
     for t in threads:
@@ -151,5 +153,4 @@ def service(target_ip_port, filename, m_socket):
     print("Loading "+str(filename)+" ...")
     load_file(filename)
     print('OK')
-    print("Sending "+str(filename)+" ...")
     shake_hand(filename)
