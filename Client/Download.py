@@ -1,9 +1,14 @@
 import struct
 import os
+import time
+import threading
 # 从客户端接收文件
-def service(target_ip_port, file_cache_len, filename, sk):
+
+recv_base = 0
+
+def download(target_ip_port, file_cache_len, filename, sk):
+    global recv_base
     buffer = 1024
-    recv_base = 0
     file_cache = [0]*file_cache_len
     ACK_status = [0]*file_cache_len
     rwnd = 500
@@ -36,6 +41,7 @@ def service(target_ip_port, file_cache_len, filename, sk):
         else:
             file_cache[seq] = content
     sk.close()
+    recv_base = 0
 
 # 保存文件
 def save_file(file_cache, filename):
@@ -43,3 +49,16 @@ def save_file(file_cache, filename):
         for content in file_cache:
             f.write(content)
     print('OK')
+
+def shake_hand(ip_port, sk):
+    global recv_base
+    while True:
+        sk.sendto(b'-1', ip_port)
+        if recv_base != 0:
+            break
+        time.sleep(1)
+    
+def service(ip_port, file_cache_len, filename, sk):
+    t = threading.Thread(target = download, args=(ip_port, file_cache_len, filename, sk))
+    t.start()
+    shake_hand(ip_port, sk)

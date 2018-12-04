@@ -3,16 +3,12 @@ from socket import *
 import struct
 import time
 import threading
-import json
 import os
 
 buffer = 1024
-hostName = '119.29.204.118'
-# hostName = '127.0.0.1'
-ip_port = (hostName, 8888)
-
-sk = socket(AF_INET, SOCK_DGRAM)
 file_cache_len = 0
+
+sk = 0
 
 send_base = 0
 nextseqnum = 0
@@ -115,9 +111,7 @@ def timer(old_base, ip_port):
 
 # 加载文件
 def load_file(file_path):
-    global file_cache
-    global file_cache_len
-    global ACK_status
+    global file_cache, file_cache_len, ACK_status
     filesize = os.path.getsize(file_path)
     with open(file_path, 'rb') as f:
         while filesize:
@@ -133,56 +127,29 @@ def load_file(file_path):
                 break
     file_cache_len = len(file_cache)
 
-# 建立连接
-shake_finish = False
-def shake_hand(filename):
-    global ip_port, file_cache_len, shake_finish
-    service_type = 0 # 上传文件
-    message = struct.pack("iii100s", service_type, file_cache_len, len(filename), filename.encode('utf-8'))
-    sk.sendto(message, ip_port)
+# 输出当前进度
+def process(send_base, file_cache_len, start_time):
+    try:
+        percent = send_base*100/file_cache_len
+    except Exception:
+        percent = 100
+    if send_base != file_cache_len:
+        print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'),end='\r')
+    else:
+        print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'))
 
-    # print('send syn')
-    shake_finish = False
-    helper = threading.Thread(target = shake_helper, args=(filename,))
-    helper.start()
-    print('start to recv')
-    new_port = sk.recv(1024)
-    new_port = int(new_port)
-    print('new port is '+str(new_port))
-    shake_finish = True
-    print('recv OK')
-    threads = [threading.Thread(target = get), threading.Thread(target = send, args=((hostName,new_port),))]
+def service(dirpath, filename, ip_port, m_socket):
+    global sk
+    sk = m_socket
+    path = os.path.join(dirpath, filename)
+    print("Loading "+filename+" ...")
+    load_file(path)
+    print('OK')
+    print("Sending "+filename+" ...")
+    threads = [threading.Thread(target = get), threading.Thread(target = send, args=(ip_port,))]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
     print('OK')
     clean()  # 清空数据，避免对下次调用造成影响
-
-# SYN 信息重发
-def shake_helper(filename):
-    global shake_finish
-    while True:
-        time.sleep(1)
-        if shake_finish == True:
-            break
-        service_type = 0
-        message = struct.pack("iii100s", service_type, file_cache_len, len(filename), filename.encode('utf-8'))
-        sk.sendto(message, ip_port)
-        # print('resend syn')
-
-# 输出当前进度
-def process(send_base, file_cache_len, start_time):
-    percent = send_base*100/file_cache_len
-    if send_base != file_cache_len:
-        print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'),end='\r')
-    else:
-        print('complete percent:%10.8s%s   spent time:%s%s'%(str(percent),'%', str(int(time.time()-start_time)),'s'))
-
-def service(dirpath, filename):
-    path = os.path.join(dirpath, filename)
-    print("Loading "+filename+" ...")
-    load_file(path)
-    print('OK')
-    print("Sending "+filename+" ...")
-    shake_hand(filename)
